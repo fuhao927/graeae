@@ -1,0 +1,24 @@
+<package>
+  <description brief="graeae">
+
+     graeae
+
+  </description>
+  <author>DestineLin</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/graeae</url>
+  <depend package="pcl"/>
+  <depend package="pcl_ros"/>
+  <depend package="roscpp"/>
+  <depend package="pcl_msgs"/>
+  <depend package="rosbag"/>
+  <depend package="octomap_ros"/>
+  <depend package="opencv2"/>
+  <depend package="dynamic_reconfigure"/>
+  <depend package="rospy"/>
+  <depend package="tf2"/>
+
+</package>
+
+
