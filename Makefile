@@ -348,6 +348,19 @@ run_tests/fast:
 .PHONY : run_tests/fast
 
 #=============================================================================
+# Target rules for targets named segmenter
+
+# Build rule for target.
+segmenter: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 segmenter
+.PHONY : segmenter
+
+# fast build rule for target.
+segmenter/fast:
+	$(MAKE) -f CMakeFiles/segmenter.dir/build.make CMakeFiles/segmenter.dir/build
+.PHONY : segmenter/fast
+
+#=============================================================================
 # Target rules for targets named test
 
 # Build rule for target.
@@ -438,53 +451,77 @@ gtest_main/fast:
 	$(MAKE) -f gtest/CMakeFiles/gtest_main.dir/build.make gtest/CMakeFiles/gtest_main.dir/build
 .PHONY : gtest_main/fast
 
-src/label_viwer.o: src/label_viwer.cpp.o
-.PHONY : src/label_viwer.o
+src/test/label_viwer.o: src/test/label_viwer.cpp.o
+.PHONY : src/test/label_viwer.o
 
 # target to build an object file
-src/label_viwer.cpp.o:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/label_viwer.cpp.o
-.PHONY : src/label_viwer.cpp.o
+src/test/label_viwer.cpp.o:
+	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.o
+.PHONY : src/test/label_viwer.cpp.o
 
-src/label_viwer.i: src/label_viwer.cpp.i
-.PHONY : src/label_viwer.i
+src/test/label_viwer.i: src/test/label_viwer.cpp.i
+.PHONY : src/test/label_viwer.i
 
 # target to preprocess a source file
-src/label_viwer.cpp.i:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/label_viwer.cpp.i
-.PHONY : src/label_viwer.cpp.i
+src/test/label_viwer.cpp.i:
+	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.i
+.PHONY : src/test/label_viwer.cpp.i
 
-src/label_viwer.s: src/label_viwer.cpp.s
-.PHONY : src/label_viwer.s
+src/test/label_viwer.s: src/test/label_viwer.cpp.s
+.PHONY : src/test/label_viwer.s
 
 # target to generate assembly for a file
-src/label_viwer.cpp.s:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/label_viwer.cpp.s
-.PHONY : src/label_viwer.cpp.s
+src/test/label_viwer.cpp.s:
+	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.s
+.PHONY : src/test/label_viwer.cpp.s
 
-src/pulish_pc_demo.o: src/pulish_pc_demo.cpp.o
-.PHONY : src/pulish_pc_demo.o
+src/test/pulish_pc_demo.o: src/test/pulish_pc_demo.cpp.o
+.PHONY : src/test/pulish_pc_demo.o
 
 # target to build an object file
-src/pulish_pc_demo.cpp.o:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/pulish_pc_demo.cpp.o
-.PHONY : src/pulish_pc_demo.cpp.o
+src/test/pulish_pc_demo.cpp.o:
+	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.o
+.PHONY : src/test/pulish_pc_demo.cpp.o
 
-src/pulish_pc_demo.i: src/pulish_pc_demo.cpp.i
-.PHONY : src/pulish_pc_demo.i
+src/test/pulish_pc_demo.i: src/test/pulish_pc_demo.cpp.i
+.PHONY : src/test/pulish_pc_demo.i
 
 # target to preprocess a source file
-src/pulish_pc_demo.cpp.i:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/pulish_pc_demo.cpp.i
-.PHONY : src/pulish_pc_demo.cpp.i
+src/test/pulish_pc_demo.cpp.i:
+	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.i
+.PHONY : src/test/pulish_pc_demo.cpp.i
 
-src/pulish_pc_demo.s: src/pulish_pc_demo.cpp.s
-.PHONY : src/pulish_pc_demo.s
+src/test/pulish_pc_demo.s: src/test/pulish_pc_demo.cpp.s
+.PHONY : src/test/pulish_pc_demo.s
 
 # target to generate assembly for a file
-src/pulish_pc_demo.cpp.s:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/pulish_pc_demo.cpp.s
-.PHONY : src/pulish_pc_demo.cpp.s
+src/test/pulish_pc_demo.cpp.s:
+	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.s
+.PHONY : src/test/pulish_pc_demo.cpp.s
+
+src/test/segmenter_test.o: src/test/segmenter_test.cpp.o
+.PHONY : src/test/segmenter_test.o
+
+# target to build an object file
+src/test/segmenter_test.cpp.o:
+	$(MAKE) -f CMakeFiles/segmenter.dir/build.make CMakeFiles/segmenter.dir/src/test/segmenter_test.cpp.o
+.PHONY : src/test/segmenter_test.cpp.o
+
+src/test/segmenter_test.i: src/test/segmenter_test.cpp.i
+.PHONY : src/test/segmenter_test.i
+
+# target to preprocess a source file
+src/test/segmenter_test.cpp.i:
+	$(MAKE) -f CMakeFiles/segmenter.dir/build.make CMakeFiles/segmenter.dir/src/test/segmenter_test.cpp.i
+.PHONY : src/test/segmenter_test.cpp.i
+
+src/test/segmenter_test.s: src/test/segmenter_test.cpp.s
+.PHONY : src/test/segmenter_test.s
+
+# target to generate assembly for a file
+src/test/segmenter_test.cpp.s:
+	$(MAKE) -f CMakeFiles/segmenter.dir/build.make CMakeFiles/segmenter.dir/src/test/segmenter_test.cpp.s
+.PHONY : src/test/segmenter_test.cpp.s
 
 # Help Target
 help:
@@ -514,6 +551,7 @@ help:
 	@echo "... rospack_genmsg_libexe"
 	@echo "... rospack_gensrv"
 	@echo "... run_tests"
+	@echo "... segmenter"
 	@echo "... test"
 	@echo "... test-future"
 	@echo "... test-results"
@@ -521,12 +559,15 @@ help:
 	@echo "... tests"
 	@echo "... gtest"
 	@echo "... gtest_main"
-	@echo "... src/label_viwer.o"
-	@echo "... src/label_viwer.i"
-	@echo "... src/label_viwer.s"
-	@echo "... src/pulish_pc_demo.o"
-	@echo "... src/pulish_pc_demo.i"
-	@echo "... src/pulish_pc_demo.s"
+	@echo "... src/test/label_viwer.o"
+	@echo "... src/test/label_viwer.i"
+	@echo "... src/test/label_viwer.s"
+	@echo "... src/test/pulish_pc_demo.o"
+	@echo "... src/test/pulish_pc_demo.i"
+	@echo "... src/test/pulish_pc_demo.s"
+	@echo "... src/test/segmenter_test.o"
+	@echo "... src/test/segmenter_test.i"
+	@echo "... src/test/segmenter_test.s"
 .PHONY : help
 
 
