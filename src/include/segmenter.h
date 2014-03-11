@@ -155,7 +155,6 @@ bool customRegionGrowing (const PointTypeFull& point_a, const PointTypeFull& poi
   return (false);
 }
 
-
 // ===  FUNCTION  ======================================================================
 //         Name:  segmentInPlaceRG
 //  Description:
