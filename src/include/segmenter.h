@@ -84,8 +84,10 @@ void markSegmentNum(PointCloudT &cloud, pcl::PointIndices &cluster, int segNum)
 //         Name:  segmentInPlace
 //  Description:  segment cloud with a minimun size of min_pts_per_cluster
 // =====================================================================================
-void segmentInPlaceEuclidean (PointCloudT &cloud, PointCloudT &cloud_out, int min_pts_per_cluster = 1000)
+void segmentInPlaceEuclidean (PointCloudT::Ptr &cloud_ptr, int min_pts_per_cluster = 1000)
 {
+  PointCloudT::Ptr _cloud_ptr(new PointCloudT);
+  pcl::copyPointCloud (cloud_ptr, _cloud_ptr);
   pcl::SACSegmentation<PointT> seg_;
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   seg_.setOptimizeCoefficients (true);
@@ -96,48 +98,43 @@ void segmentInPlaceEuclidean (PointCloudT &cloud, PointCloudT &cloud_out, int mi
 
   // Set segment label as 1 to a start
   int seg_num=1;
-  int orig_points = cloud.points.size();
-  PointCloudT::Ptr cloud_ptr (new PointCloudT(cloud));
+  int orig_points = _cloud_ptr->points.size();
   PointCloudT::Ptr cloud_tmp_ptr (new PointCloudT);
   PointCloudT::Ptr cloud_plane_ptr (new PointCloudT);
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
   // Segment the planar component from the input cloud
-  while(cloud_ptr->points.size() > 0.4 * orig_points) {
-    seg_.setInputCloud(cloud_ptr);
+  while(_cloud_ptr->points.size() > 0.4 * orig_points) {
+    seg_.setInputCloud(_cloud_ptr);
     seg_.segment (*inliers, *coefficients);
+    markSegmentNum(*cloud_ptr, *inliers, seg_num++);
     assert(inliers->indices.size() != 0);
 
     // Extract the planar inliers from the input cloud
     pcl::ExtractIndices<PointT> extract;
-    extract.setInputCloud(cloud_ptr);
+    extract.setInputCloud(_cloud_ptr);
     extract.setIndices(inliers);
-    markSegmentNum(*cloud_ptr, *inliers, seg_num++);
-    extract.setNegative(false);
-    extract.filter(*cloud_plane_ptr);
-    cloud_out += *cloud_plane_ptr;
 
     // Remove the planar inliers
     extract.setNegative(true);
     extract.filter(*cloud_tmp_ptr);
-    *cloud_ptr = *cloud_tmp_ptr;
+    *_cloud_ptr = *cloud_tmp_ptr;
   }
 
   // Creating kdtree for the search method of the extraction
   KdTreePtr tree(new KdTree);
-  tree->setInputCloud(cloud_ptr);
+  tree->setInputCloud(_cloud_ptr);
   std::vector<pcl::PointIndices> cluster_vector;
   pcl::EuclideanClusterExtraction<PointT> ec;
   ec.setClusterTolerance(0.02);
   ec.setMinClusterSize (min_pts_per_cluster);
-  ec.setMaxClusterSize (cloud_ptr->points.size());
+  ec.setMaxClusterSize (_cloud_ptr->points.size());
   ec.setSearchMethod (tree);
-  ec.setInputCloud (cloud_ptr);
+  ec.setInputCloud (_cloud_ptr);
   ec.extract (cluster_vector);
   for(size_t i=0;i<cluster_vector.size();i++)
     markSegmentNum(*cloud_ptr, cluster_vector[i], seg_num++);
-  cloud_out += *cloud_ptr;
-  ROS_INFO("%d size cloud is seperated into %d pieces.", cloud_out.points.size(), seg_num-1);
+  ROS_INFO("%d size cloud is seperated into %d pieces.", cloud_ptr->points.size(), seg_num-1);
 }
 
 bool customRegionGrowing (const PointTypeFull& point_a, const PointTypeFull& point_b, float squared_distance)
@@ -159,7 +156,7 @@ bool customRegionGrowing (const PointTypeFull& point_a, const PointTypeFull& poi
 //         Name:  segmentInPlaceRG
 //  Description:
 // =====================================================================================
-void segmentInPlaceRG(PointCloudT &cloud, PointCloudT &cloud_out)
+void segmentInPlaceRG(PointCloudT &cloud)
 {
   // Data containers used
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_rgb_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -170,7 +167,6 @@ void segmentInPlaceRG(PointCloudT &cloud, PointCloudT &cloud_out)
 
   // Load the input point cloud
   pcl::copyPointCloud (cloud, *cloud_rgb_ptr);
-  pcl::copyPointCloud (cloud, cloud_out);
   PointCloudXYZRGBtoXYZI(*cloud_rgb_ptr, *cloud_i_ptr);
 
   // Set up a Normal Estimation class and merge data in cloud_with_normals
@@ -197,27 +193,55 @@ void segmentInPlaceRG(PointCloudT &cloud, PointCloudT &cloud_out)
   int segNum=1;
   // Using the intensity channel for lazy visualization of the output
   for (size_t i = 0; i < clusters->size(); ++i)
-    markSegmentNum(cloud_out, (*clusters)[i], segNum++);
+    markSegmentNum(cloud, (*clusters)[i], segNum++);
   for (size_t i = 0; i < large_clusters->size(); ++i)
-    markSegmentNum(cloud_out, (*large_clusters)[i], segNum++);
+    markSegmentNum(cloud, (*large_clusters)[i], segNum++);
   if(segNum < 8)
     for (size_t i = 0; i < 8-segNum; ++i)
-      markSegmentNum(cloud_out, (*small_clusters)[i], segNum++);
+      markSegmentNum(cloud, (*small_clusters)[i], segNum++);
 }
 
 // ===  FUNCTION  ======================================================================
 //         Name:  segmentInPlace
 //  Description:  use specified method to segment the cloud
 // =====================================================================================
-void segmentInPlace(PointCloudT &cloud, PointCloudT &cloud_out, Graeae::Segment::SegmentType method)
+void segmentInPlace(PointCloudT::Ptr cloud_ptr, Graeae::Segment::SegmentType method)
 {
   switch (method) {
     case Graeae::Segment::EUCLIDEAN:
-             segmentInPlaceEuclidean(cloud, cloud_out);
+             segmentInPlaceEuclidean(cloud_ptr);
                break;
     case Graeae::Segment::REGIONGROW:
     default :
-             segmentInPlaceRG(cloud, cloud_out);
+             segmentInPlaceRG(cloud_ptr);
+  }
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  applySegmentFilter
+//  Description:
+//                [out] cloud_out
+//                [out] indices
+// =====================================================================================
+applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, std::vector<size_t> &indices)
+{
+  cloud_out.points.erase(cloud_out.points.begin(), cloud_out.points.end());
+  cloud_out.header.frame_id = cloud.header.frame_id;
+  cloud_out.points.resize(cloud.points.size());
+
+  for (size_t i = 0, j=0; i < cloud.points.size(); ++i) {
+    if (cloud.points[i].segment == segNum) {
+      cloud_out.points[j].x = cloud.points[i].x;
+      cloud_out.points[j].y = cloud.points[i].y;
+      cloud_out.points[j].z = cloud.points[i].z;
+      cloud_out.points[j].rgb = cloud.points[i].rgb;
+      cloud_out.points[j].segment = cloud.points[i].segment;
+      cloud_out.points[j].label = cloud.points[i].label;
+      cloud_out.points[j].cameraIndex = cloud.points[i].cameraIndex;
+      cloud_out.points[j].distance = cloud.points[i].distance;
+      j++;
+      indices.push_back(i);
+    }
   }
 }
 

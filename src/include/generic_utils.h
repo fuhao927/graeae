@@ -1,12 +1,15 @@
 #ifndef GENERICUTILS_H
 #define GENERICUTILS_H
 #include <Eigen/Dense>
+#include <Eigen/EigenVetor>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 #include <boost/dynamic_bitset.hpp>
+
+typedef std::vector<pcl::PointCloud<PointT>, Eigen::aligned_allocator<pcl::PointCloud<PointT> > > PointCloudVector;
 
 // fix me here
 template<typename _Scalar>
@@ -145,5 +148,36 @@ void readInvLabelMap(const string & file, map<int, int> &_invMap, std::map<int, 
   myfile.close();
 }
 
-#endif	/* GENERICUTILS_H */
 
+//----------------------------------------------------------------------
+//  @param segment_clouds
+//  @param distance_matrix : it will be populated by this method
+//  @param neighbor_map : it will be populated by this method(in adjacency list format)
+//  @return : number of edges
+//----------------------------------------------------------------------
+int getNeighbors(const PointCloudVector &segment_clouds,
+    std::map< pair <int, int>, float > &distance_matrix,
+    std::map <int, vector <int> > &neighbor_map)
+{
+  float tolerance = 0.6;
+  // get distance matrix
+  for (size_t i = 0; i < segment_clouds.size(); i++) {
+    for (size_t j = i + 1; j < segment_clouds.size(); j++) {
+      pair<float, int> dist_pair = getSmallestDistance(segment_clouds[i], segment_clouds[j]);
+      distance_matrix[make_pair(segment_clouds[i].points[1].segment, segment_clouds[j].points[1].segment)] = dist_pair.first;
+      distance_matrix[make_pair(segment_clouds[j].points[1].segment, segment_clouds[i].points[1].segment)] = dist_pair.first;
+    }
+  }
+
+  // get neighbour map
+  int num_neighbors = 0;
+  for (map< pair <int, int>, float >::iterator it = distance_matrix.begin(); it != distance_matrix.end(); it++) {
+    if ((*it).second < tolerance) {
+      neighbor_map[(*it).first.first].push_back((*it).first.second);
+      num_neighbors++;
+    }
+  }
+  return num_neighbors;
+}
+
+#endif	/* GENERICUTILS_H */
