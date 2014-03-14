@@ -131,6 +131,10 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
         )
 
 //PCL_INSTANTIATE_initTree(pcl::PointXYZRGBCamSL)
+typedef pcl::PointXYZRGBCamSL PointT;
+typedef pcl::PointCloud<PointT> PointCloudT;
+typedef pcl::search::KdTree<PointT> KdTree;
+typedef pcl::search::KdTree<PointT>::Ptr KdTreePtr;
 
 #endif	/* POINT_TYPES_H */
 

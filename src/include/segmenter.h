@@ -37,6 +37,8 @@
 #include <pcl/point_types.h>
 #include <pcl/impl/point_types.hpp>
 #include <pcl/point_types_conversion.h>
+#include <pcl/common/io.h>
+#include <pcl/common/impl/io.hpp>
 
 namespace Graeae {
   namespace Segment{
@@ -87,7 +89,7 @@ void markSegmentNum(PointCloudT &cloud, pcl::PointIndices &cluster, int segNum)
 void segmentInPlaceEuclidean (PointCloudT::Ptr &cloud_ptr, int min_pts_per_cluster = 1000)
 {
   PointCloudT::Ptr _cloud_ptr(new PointCloudT);
-  pcl::copyPointCloud (cloud_ptr, _cloud_ptr);
+  pcl::copyPointCloud (*cloud_ptr, *_cloud_ptr);
   pcl::SACSegmentation<PointT> seg_;
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   seg_.setOptimizeCoefficients (true);
@@ -156,7 +158,7 @@ bool customRegionGrowing (const PointTypeFull& point_a, const PointTypeFull& poi
 //         Name:  segmentInPlaceRG
 //  Description:
 // =====================================================================================
-void segmentInPlaceRG(PointCloudT &cloud)
+void segmentInPlaceRG(PointCloudT::Ptr &cloud_ptr)
 {
   // Data containers used
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_rgb_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -166,7 +168,7 @@ void segmentInPlaceRG(PointCloudT &cloud)
   pcl::search::KdTree<PointTypeIO>::Ptr search_tree (new pcl::search::KdTree<PointTypeIO>);
 
   // Load the input point cloud
-  pcl::copyPointCloud (cloud, *cloud_rgb_ptr);
+  pcl::copyPointCloud (*cloud_ptr, *cloud_rgb_ptr);
   PointCloudXYZRGBtoXYZI(*cloud_rgb_ptr, *cloud_i_ptr);
 
   // Set up a Normal Estimation class and merge data in cloud_with_normals
@@ -193,12 +195,12 @@ void segmentInPlaceRG(PointCloudT &cloud)
   int segNum=1;
   // Using the intensity channel for lazy visualization of the output
   for (size_t i = 0; i < clusters->size(); ++i)
-    markSegmentNum(cloud, (*clusters)[i], segNum++);
+    markSegmentNum(*cloud_ptr, (*clusters)[i], segNum++);
   for (size_t i = 0; i < large_clusters->size(); ++i)
-    markSegmentNum(cloud, (*large_clusters)[i], segNum++);
-  if(segNum < 8)
-    for (size_t i = 0; i < 8-segNum; ++i)
-      markSegmentNum(cloud, (*small_clusters)[i], segNum++);
+    markSegmentNum(*cloud_ptr, (*large_clusters)[i], segNum++);
+  if(segNum < 10)
+    for (int i = 0; i < 8-segNum; ++i)
+      markSegmentNum(*cloud_ptr, (*small_clusters)[i], segNum++);
 }
 
 // ===  FUNCTION  ======================================================================
@@ -223,14 +225,15 @@ void segmentInPlace(PointCloudT::Ptr cloud_ptr, Graeae::Segment::SegmentType met
 //                [out] cloud_out
 //                [out] indices
 // =====================================================================================
-applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, std::vector<size_t> &indices)
+void applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, std::vector<size_t> &indices)
 {
   cloud_out.points.erase(cloud_out.points.begin(), cloud_out.points.end());
   cloud_out.header.frame_id = cloud.header.frame_id;
   cloud_out.points.resize(cloud.points.size());
 
-  for (size_t i = 0, j=0; i < cloud.points.size(); ++i) {
-    if (cloud.points[i].segment == segNum) {
+  int j=0;
+  for (size_t i = 0; i < cloud.points.size(); ++i) {
+    if ((int)cloud.points[i].segment == segNum) {
       cloud_out.points[j].x = cloud.points[i].x;
       cloud_out.points[j].y = cloud.points[i].y;
       cloud_out.points[j].z = cloud.points[i].z;
@@ -241,6 +244,151 @@ applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, std::
       cloud_out.points[j].distance = cloud.points[i].distance;
       j++;
       indices.push_back(i);
+    }
+  }
+  cloud_out.points.resize(j);
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  applySegmentFilter
+//  Description:
+//                [out] cloud_out
+//                [out] indices
+// =====================================================================================
+void applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out)
+{
+  cloud_out.points.erase(cloud_out.points.begin(), cloud_out.points.end());
+  cloud_out.header.frame_id = cloud.header.frame_id;
+  cloud_out.points.resize(cloud.points.size());
+
+  int j=0;
+  for (size_t i = 0; i < cloud.points.size(); ++i) {
+    if ((int)cloud.points[i].segment == segNum) {
+      cloud_out.points[j].x = cloud.points[i].x;
+      cloud_out.points[j].y = cloud.points[i].y;
+      cloud_out.points[j].z = cloud.points[i].z;
+      cloud_out.points[j].rgb = cloud.points[i].rgb;
+      cloud_out.points[j].segment = cloud.points[i].segment;
+      cloud_out.points[j].label = cloud.points[i].label;
+      cloud_out.points[j].cameraIndex = cloud.points[i].cameraIndex;
+      cloud_out.points[j].distance = cloud.points[i].distance;
+      j++;
+    }
+  }
+  if (j > 0)
+    cloud_out.points.resize(j);
+  else
+    cloud_out.points.clear();
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  applyCameraFilter
+//  Description:
+// =====================================================================================
+void applyCameraFilter(const PointCloudT &incloud, PointCloudT &outcloud, int camera)
+{
+  outcloud.points.erase(outcloud.points.begin(), outcloud.points.end());
+  outcloud.header.frame_id = incloud.header.frame_id;
+  outcloud.points.resize(incloud.points.size());
+
+  int j = -1;
+  for (size_t i = 0; i < incloud.points.size(); ++i) {
+    if ((int)incloud.points[i].cameraIndex == camera) {
+      j++;
+      outcloud.points[j].x = incloud.points[i].x;
+      outcloud.points[j].y = incloud.points[i].y;
+      outcloud.points[j].z = incloud.points[i].z;
+      outcloud.points[j].rgb = incloud.points[i].rgb;
+      outcloud.points[j].segment = incloud.points[i].segment;
+      outcloud.points[j].label = incloud.points[i].label;
+      outcloud.points[j].cameraIndex = incloud.points[i].cameraIndex;
+      outcloud.points[j].distance = incloud.points[i].distance;
+    }
+  }
+  assert(j >= 0);
+  outcloud.points.resize(j + 1);
+}
+
+void applyNotsegmentFilter(const PointCloudT &incloud, int segment, PointCloudT &outcloud)
+{
+    outcloud.points.erase(outcloud.points.begin(), outcloud.points.end());
+    outcloud.header.frame_id = incloud.header.frame_id;
+    outcloud.points.resize(incloud.points.size());
+
+    int j=0;
+    for (size_t i = 0; i < incloud.points.size(); ++i) {
+
+        if ((int)incloud.points[i].segment != segment) {
+            outcloud.points[j].x = incloud.points[i].x;
+            outcloud.points[j].y = incloud.points[i].y;
+            outcloud.points[j].z = incloud.points[i].z;
+            outcloud.points[j].rgb = incloud.points[i].rgb;
+            outcloud.points[j].segment = incloud.points[i].segment;
+            outcloud.points[j].label = incloud.points[i].label;
+            outcloud.points[j].cameraIndex = incloud.points[i].cameraIndex;
+            outcloud.points[j].distance = incloud.points[i].distance;
+            j++;
+        }
+    }
+    assert(j > 0);
+    outcloud.points.resize(j);
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  getDistanceToBoundary
+//  Description:
+// =====================================================================================
+float getDistanceToBoundary(const pcl::PointCloud<PointT> &cloud1, const pcl::PointCloud<PointT> &cloud2)
+{
+  float max_distance = 0;
+  for (size_t i = 0; i < cloud1.points.size(); ++i) {
+    float pdist = 0;
+    for (size_t j = 0; j < cloud2.points.size(); ++j) {
+      float point_dist = pow((cloud1.points[i].x - cloud2.points[j].x), 2) + pow((cloud1.points[i].y - cloud2.points[j].y), 2) + pow((cloud1.points[i].z - cloud2.points[j].z), 2);
+      float distance = (pow(cloud2.points[j].distance, 2) - pow(cloud1.points[i].distance, 2) - (point_dist)) / (2 * cloud1.points[i].distance);
+      if (pdist < distance) pdist = distance;
+      if (max_distance < distance) max_distance = distance;
+    }
+  }
+  return max_distance;
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  getSegmentDistanceToBoundary
+//  Description:
+// =====================================================================================
+void getSegmentDistanceToBoundary(const PointCloudT &cloud, std::map<int, float> &segment_boundary_distance)
+{
+  PointCloudT::Ptr cloud_rest(new PointCloudT ());
+  PointCloudT::Ptr cloud_cam(new PointCloudT ());
+  PointCloudT::Ptr cloud_seg(new PointCloudT ());
+  PointCloudT::Ptr cloud_ptr(new PointCloudT (cloud));
+
+  int cnt = 0;
+
+  std::map<int, int> camera_indices;
+  for (size_t i = 0; i < cloud.points.size(); ++i) {
+    camera_indices[(int) cloud.points[i].cameraIndex] = 1;
+  }
+  // for every camera index .. apply filter anf get the point cloud
+  for (std::map<int, int>::iterator it = camera_indices.begin(); it != camera_indices.end(); it++) {
+    int ci = (*it).first;
+    applyCameraFilter(*cloud_ptr, *cloud_cam, ci);
+
+    // find the segment list
+    std::map<int, int> segments;
+    for (size_t i = 0; i < cloud_cam->points.size(); ++i)
+      segments[(int) cloud_cam->points[i].segment] = 1;
+    for (std::map<int, int>::iterator it2 = segments.begin(); it2 != segments.end(); it2++) {
+      cnt++;
+      int segnum = (*it2).first;
+      applySegmentFilter(*cloud_cam, segnum, *cloud_seg);
+      applyNotsegmentFilter(*cloud_cam, segnum, *cloud_rest);
+      float bdist = getDistanceToBoundary(*cloud_seg, *cloud_rest);
+
+      std::map<int, float>::iterator segit = segment_boundary_distance.find(segnum);
+      if (segit == segment_boundary_distance.end() || bdist > segment_boundary_distance[segnum])
+        segment_boundary_distance[segnum] = bdist;
     }
   }
 }

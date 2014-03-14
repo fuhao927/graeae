@@ -1,7 +1,8 @@
 #ifndef GENERICUTILS_H
 #define GENERICUTILS_H
+#include <vector>
 #include <Eigen/Dense>
-#include <Eigen/EigenVetor>
+#include <Eigen/StdVector>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
@@ -112,12 +113,12 @@ void readLabelList(const string & file, std::vector<int> &labels, boost::dynamic
   while (myfile.good()) {
     getline(myfile, line);
     if (line.length() > 0) {
-      char_separator<char> sep(",");
-      tokenizer<char_separator<char> > tokens(line, sep);
+      boost::char_separator<char> sep(",");
+      boost::tokenizer<boost::char_separator<char> > tokens(line, sep);
 
       BOOST_FOREACH(string t, tokens) {
-        labels.push_back(lexical_cast<int>(t.data()));
-        bitmap.set(lexical_cast<int>(t.data()));
+        labels.push_back(boost::lexical_cast<int>(t.data()));
+        bitmap.set(boost::lexical_cast<int>(t.data()));
       }
     }
   }
@@ -128,7 +129,7 @@ void readLabelList(const string & file, std::vector<int> &labels, boost::dynamic
 //         Name:  readInvLabelMap
 //  Description:
 // =====================================================================================
-void readInvLabelMap(const string & file, map<int, int> &_invMap, std::map<int, int> &_labelmap;)
+void readInvLabelMap(const string & file, std::map<int, int> &_invMap, std::map<int, int> &_labelmap)
 {
   // char lineBuf[1000]; assuming a line is less than
   string line;
@@ -147,6 +148,49 @@ void readInvLabelMap(const string & file, map<int, int> &_invMap, std::map<int, 
   }
   myfile.close();
 }
+
+// ===  FUNCTION  ======================================================================
+//         Name:  getSmallestDistance
+//  Description:
+// =====================================================================================
+std::pair<float, int> getSmallestDistance(const PointCloudT &cloud1, const PointCloudT &cloud2)
+{
+  float min_distance = FLT_MAX;
+  int min_index = 0;
+  pcl::PointCloud<PointT>::Ptr small_cloud;
+  pcl::PointCloud<PointT>::Ptr big_cloud;
+  if (cloud1.points.size() > cloud2.points.size()) {
+    pcl::PointCloud<PointT>::Ptr cloud_ptr1(new pcl::PointCloud<PointT > (cloud1));
+    pcl::PointCloud<PointT>::Ptr cloud_ptr2(new pcl::PointCloud<PointT > (cloud2));
+    small_cloud = cloud_ptr2;
+    big_cloud = cloud_ptr1;
+  }else {
+    pcl::PointCloud<PointT>::Ptr cloud_ptr1(new pcl::PointCloud<PointT > (cloud1));
+    pcl::PointCloud<PointT>::Ptr cloud_ptr2(new pcl::PointCloud<PointT > (cloud2));
+    small_cloud = cloud_ptr1;
+    big_cloud = cloud_ptr2;
+  }
+
+  KdTreePtr tree(new KdTree);
+  tree->setInputCloud(big_cloud);
+  std::vector<int> nn_indices;
+  nn_indices.resize(2);
+  std::vector<float> nn_distances;
+  nn_distances.resize(2);
+
+  for (size_t i = 0; i < small_cloud->points.size(); ++i) {
+    tree->nearestKSearch(small_cloud->points[i], 2, nn_indices, nn_distances);
+    // nn_indices[0] should be sq_idx
+    for (size_t j = 0; j < nn_indices.size(); ++j) {
+      if (min_distance > nn_distances[j]) {
+        min_distance = nn_distances[j];
+        min_index = nn_indices[j];
+      }
+    }
+  }
+  return make_pair(sqrt(min_distance), min_index);
+}
+
 
 
 //----------------------------------------------------------------------
@@ -178,6 +222,23 @@ int getNeighbors(const PointCloudVector &segment_clouds,
     }
   }
   return num_neighbors;
+}
+
+void getMinMax(const pcl::PointCloud<PointT> &cloud, Eigen::Vector4f &min_p, Eigen::Vector4f &max_p)
+{
+  min_p.setConstant(FLT_MAX);
+  max_p.setConstant(-FLT_MAX);
+  min_p[3] = max_p[3] = 0;
+
+  for (size_t i = 0; i < cloud.points.size(); ++i) {
+    if (cloud.points[i].x < min_p[0]) min_p[0] = cloud.points[i].x;
+    if (cloud.points[i].y < min_p[1]) min_p[1] = cloud.points[i].y;
+    if (cloud.points[i].z < min_p[2]) min_p[2] = cloud.points[i].z;
+
+    if (cloud.points[i].x > max_p[0]) max_p[0] = cloud.points[i].x;
+    if (cloud.points[i].y > max_p[1]) max_p[1] = cloud.points[i].y;
+    if (cloud.points[i].z > max_p[2]) max_p[2] = cloud.points[i].z;
+  }
 }
 
 #endif	/* GENERICUTILS_H */

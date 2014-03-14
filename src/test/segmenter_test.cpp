@@ -23,13 +23,12 @@
 main ( int argc, char *argv[] )
 {
   PointCloudT::Ptr cloud_ptr(new PointCloudT);
-  PointCloudT::Ptr cloud_out(new PointCloudT);
   pcl::io::loadPCDFile<PointT>(argv[1], *cloud_ptr);
   for(size_t i=0;i<cloud_ptr->points.size();i++)
     cloud_ptr->points[i].segment=0;
   filterInPlace(cloud_ptr, 0.01, 0.01, 0.01);
   Graeae::Segment::SegmentType method = (atoi(argv[2])==1) ? Graeae::Segment::EUCLIDEAN : Graeae::Segment::REGIONGROW;
-  segmentInPlace(*cloud_ptr, *cloud_out, method);
-  pcl::io::savePCDFile("segmenter_test.pcd", *cloud_out);
+  segmentInPlace(cloud_ptr, method);
+  pcl::io::savePCDFile("segmenter_test.pcd", *cloud_ptr);
   return 0;
 }				// ----------  end of function main  ----------

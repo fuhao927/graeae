@@ -1,7 +1,3 @@
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/io.hpp>
-#include "point_types.h"
-#include "global_define.h"
 /*
  * File:   CombineUtils.h
  * Author: aa755
@@ -17,8 +13,14 @@
  * - a ROS Node,
  * - a ROS listener, listening to and processing kinect data
  */
+#include "point_types.h"
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
+#include <ros/ros.h>
 #include <iostream>
-using namespace std;
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/io.hpp>
+#include <tf/transform_listener.h>
 
 void transformPointCloud(boost::numeric::ublas::matrix<double> &transform,
                         pcl::PointCloud<pcl::PointXYZRGB>::Ptr in,
@@ -48,6 +50,11 @@ float sqrG(float y)
   return y*y;
 }
 
+
+// =====================================================================================
+//        Class:  VectorG
+//  Description:
+// =====================================================================================
 class VectorG
 {
   public:
@@ -197,10 +204,12 @@ class VectorG
         out(i)=v[i];
       return out;
    }
+}; // end of VectorG
 
-
-};
-
+// ===  FUNCTION  ======================================================================
+//         Name:  transformAsMatrix
+//  Description:
+// =====================================================================================
 boost::numeric::ublas::matrix<double> transformAsMatrix(const tf::Transform& bt)
 {
   boost::numeric::ublas::matrix<double> outMat(4, 4);
@@ -230,6 +239,10 @@ boost::numeric::ublas::matrix<double> transformAsMatrix(const tf::Transform& bt)
   return outMat;
 }
 
+// =====================================================================================
+//        Class:  TransformG
+//  Description:
+// =====================================================================================
 class TransformG
 {
   public:
@@ -308,7 +321,7 @@ class TransformG
     TransformG(double *vo)
     {
       transformMat.resize(4, 4);
-      cout<<"here in vo constructor"<<endl;
+      ROS_INFO("here in vo constructor");
       for(int r=0;r<4;r++)
         for(int c=0;c<4;c++)
           transformMat(r,c)=vo[r*4+c];
@@ -321,12 +334,12 @@ class TransformG
       for(int r=0;r<4;r++)
         for(int c=0;c<4;c++)
           vi[r*4+c]=transformMat(r,c);
-      cout<<"mat is :"<<endl;
+      ROS_INFO("mat is :");
       print();
 
       gluInvertMatrix(vi,vo);
       TransformG retmat(vo);
-      cout<<"inversen is:"<<endl;
+      ROS_INFO("inversen is:");
       retmat.print();
       return retmat;
     }
@@ -447,7 +460,6 @@ class TransformG
       double xDot=cam2PointRayUnit.dotProduct(getXUnitVector());
       double yDot=cam2PointRayUnit.dotProduct(getYUnitVector());
       double zDot=cam2PointRayUnit.dotProduct(getZUnitVector());
-     // std::cerr<<"dots"<<zDot<<","<<xDot<<","<<xDot/zDot<<std::endl;
       if(zDot>0 && fabs(xDot/zDot)<0.51 && fabs(yDot/zDot)<0.4)
         return true;
       else
@@ -562,7 +574,7 @@ void appendNormals(pcl::PointCloud<pcl::PointXYZRGB>::Ptr in,pcl::PointCloud<pcl
 
 void convertType(const pcl::PointCloud<pcl::PointXYZRGB> &cloud, PointCloudT &outcloud,VectorG origin,int camIndex)
 {
-  ROS_INFO("Originc: %d ,%d, %d.", origin.v[0], origin.v[1], origin.v[2]);
+  ROS_INFO("Originc: %lf ,%lf, %lf.", origin.v[0], origin.v[1], origin.v[2]);
   outcloud.header.frame_id = cloud.header.frame_id;
   outcloud.points.resize(cloud.points.size());
   for (size_t i =0 ; i<cloud.points.size(); i++) {
@@ -584,7 +596,6 @@ void convertType(const pcl::PointCloud<pcl::PointXYZRGB> &cloud, PointCloudT &ou
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
 
 
 

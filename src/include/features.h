@@ -17,8 +17,16 @@
 #define FEATURE_H
 
 #include "global_define.h"
-#include "original_frame_info.h"
 #include "generic_utils.h"
+#include "covarianceMatrix.h"
+#include "segmenter.h"
+#include "color.h"
+#include "HOG.h"
+#include "wall_distance.h"
+#include <octomap/octomap.h>
+#include <octomap_ros/conversions.h>
+#include <octomap_ros/OctomapROS.h>
+
 
 // =====================================================================================
 //        Class:  SpectralProfile
@@ -172,7 +180,7 @@ class SpectralProfile
       return r1 - r2;
     }
 
-    float pushHogDiffFeats(const SpectralProfile & other, std::vector<float> & feats)
+    void pushHogDiffFeats(const SpectralProfile & other, std::vector<float> & feats)
     {
       avgHOGFeatsOfSegment.pushBackAllDiffFeats(other.avgHOGFeatsOfSegment, feats);
     }
@@ -221,12 +229,12 @@ class BinStumps
 
     BinStumps(string line)
     {
-      char_separator<char> sep("\t");
-      tokenizer<char_separator<char> > tokens(line, sep);
+      boost::char_separator<char> sep("\t");
+      boost::tokenizer<boost::char_separator<char> > tokens(line, sep);
       int count = 0;
 
       BOOST_FOREACH(string t, tokens) {
-        binStumps[count] = (lexical_cast<double>(t.data()));
+        binStumps[count] = (boost::lexical_cast<double>(t.data()));
         count++;
       }
       assert(count == NUM_BINS);
@@ -244,7 +252,7 @@ class BinStumps
       }
     }
 
-    void storeBinnedValues(double value, Matrix<float, Dynamic, 1 > & mat, int featIndex)
+    void storeBinnedValues(double value, Eigen::Matrix<float, Eigen::Dynamic, 1> & mat, int featIndex)
     {
       int binv, bindex;
       for (int i = 0; i < NUM_BINS; i++) {
@@ -340,8 +348,8 @@ class OriginalFrameInfo {
       IplImage * image = cvCreateImage(size, IPL_DEPTH_32F, 3);
 
       PointT tmp;
-      for (size_t x = 0; x < size.width; x++) {
-        for (size_t y = 0; y < size.height; y++) {
+      for (int x = 0; x < size.width; x++) {
+        for (int y = 0; y < size.height; y++) {
           int index = x + y * size.width;
           tmp = RGBDSlamFrame->points[index];
           ColorRGB tmpColor(tmp.rgb);
@@ -352,19 +360,19 @@ class OriginalFrameInfo {
       }
 
       ColorRGB tmpColor(0.0, 1.0, 0.0);
-      for (int i = 0; i < points.size(); i++) {
-          int x = points[i].x;
-          int y = points[i].y;
+      for (size_t i = 0; i < points.size(); i++) {
+        int x = points[i].x;
+        int y = points[i].y;
 
-          CV_IMAGE_ELEM(image, float, y, 3 * x) = tmpColor.b;
-          CV_IMAGE_ELEM(image, float, y, 3 * x + 1) = tmpColor.g;
-          CV_IMAGE_ELEM(image, float, y, 3 * x + 2) = tmpColor.r;
+        CV_IMAGE_ELEM(image, float, y, 3 * x) = tmpColor.b;
+        CV_IMAGE_ELEM(image, float, y, 3 * x + 1) = tmpColor.g;
+        CV_IMAGE_ELEM(image, float, y, 3 * x + 2) = tmpColor.r;
       }
 
-        char filename[30];
-        sprintf(filename, "s%d_l%d.png", segmentId, label);
-        HOG::saveFloatImage(filename, image);
-        cvReleaseImage(&image);
+      char filename[30];
+      sprintf(filename, "%ss%d_l%d.png", PCDDIR.c_str(), segmentId, label);
+      HOG::saveFloatImage(filename, image);
+      cvReleaseImage(&image);
     }
 
     OriginalFrameInfo(pcl::PointCloud<pcl::PointXYZRGBCamSL>::ConstPtr RGBDSlamFrame_)
@@ -380,7 +388,7 @@ class OriginalFrameInfo {
         return;
 
       // can be 0 for dummy pcds of manually transformed
-      assert(RGBDSlamFrame->size() == size.width * size.height);
+      assert((int)RGBDSlamFrame->size() == size.width * size.height);
 
       IplImage * image = cvCreateImage(size, IPL_DEPTH_32F, 3);
       PointT tmp;
@@ -412,7 +420,6 @@ class OriginalFrameInfo {
 
     static void findHog(std::vector<size_t> & pointIndices, pcl::PointCloud<PointT> &incloud, HOGFeaturesOfBlock &hogSegment, OriginalFrameInfo* targetFrame)
     {
-      static int rejectCout = 0;
       assert(targetFrame->RGBDSlamFrame->size() > 0);
       assert(targetFrame->cameraTransSet);
 
@@ -467,9 +474,84 @@ std::vector<BinStumps> nodeFeatStumps;
 std::vector<BinStumps> edgeFeatStumps;
 OriginalFrameInfo * originalFrame;
 int NUM_ASSOCIATIVE_FEATS = 4 + 1;
+double currentAngle = 0;
+
 bool UseVolFeats = false;
 bool BinFeatures = true;
+bool addNodeHeader = true;
+bool addEdgeHeader = true;
 
+typedef std::vector<std::vector<SpectralProfile, Eigen::aligned_allocator<SpectralProfile> > > SpectralProfileVectorVector;
+PointCloudVector cloudVector;
+SpectralProfileVectorVector spectralProfilesVector;
+std::vector<PointCloudVector > segment_cloudsVector;
+std::vector<int> sceneNumVector;
+std::vector<std::map<int, int> > segIndex2LabelVector;
+
+// ===  FUNCTION  ======================================================================
+//         Name:  buildOctoMap
+//  Description:
+// =====================================================================================
+void buildOctoMap(const pcl::PointCloud<PointT> &cloud, octomap::OcTreeROS & tree)
+{
+  PointCloudT::Ptr cloud_ptr(new PointCloudT(cloud));
+  PointCloudT::Ptr cloud_cam(new PointCloudT());
+
+  // convert to  pointXYZ format
+  sensor_msgs::PointCloud2 cloud_blob;
+  pcl::toROSMsg(*cloud_ptr, cloud_blob);
+  pcl::PointCloud<pcl::PointXYZ> xyzcloud;
+  pcl::fromROSMsg(cloud_blob, xyzcloud);
+
+  // find the camera co-ordinate
+  VectorG cam_coordinates = originalFrame->getCameraTrans().getOrigin();
+  pcl::PointXYZ origin(cam_coordinates.v[0], cam_coordinates.v[1], cam_coordinates.v[2]);
+  // insert to the tree
+  tree.insertScan(xyzcloud, origin, -1, true);
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  parseAndApplyLabels
+//  Description:
+// =====================================================================================
+void parseAndApplyLabels(std::ifstream &file,
+                         PointCloudT &cloud,
+                         PointCloudVector &segment_clouds,
+                         map<int, int> &segIndex2label)
+{
+  string tokens[3];
+  boost::char_separator<char> sep1(" ");
+  boost::char_separator<char> sep2(":");
+  std::string line;
+  getline(file, line);
+  int count;
+  boost::tokenizer<boost::char_separator<char> > tokens1(line, sep1);
+  map<int, int> segId2label;
+  foundAny = false;
+  BOOST_FOREACH(string t, tokens1) {
+    count = 0;
+    boost::tokenizer<boost::char_separator<char> > tokens2(t, sep2);
+    BOOST_FOREACH(string t2, tokens2) {
+      assert(count < 3);
+      tokens[count] = t2;
+      count++;
+    }
+
+    int segmentIndex = (boost::lexical_cast<int>(tokens[0])) - 1;
+    int segmentId = segment_clouds[segmentIndex].points[1].segment;
+    int label = boost::lexical_cast<int>(tokens[1]);
+    segId2label[segmentId] = label;
+    segIndex2label[segmentIndex] = label;
+    if (!labelsFound.test(label-1)){
+      labelsFound.set(label-1, true);
+      foundAny = true;
+      ROS_INFO("Found label %d: in scene %d at: %lf.", label-1, sceneNumVector.back(), currentAngle);
+    }
+  }
+
+  for (size_t i = 0; i < cloud.size(); i++)
+    cloud.points[i].label = invLabelMap[segId2label[cloud.points[i].segment]];
+}
 
 
 // ===  FUNCTION  ======================================================================
@@ -477,7 +559,8 @@ bool BinFeatures = true;
 //  Description:
 // =====================================================================================
 void getFeatureHistogram(std::vector<std::vector<float> > &descriptor_results,
-                           std::vector< std::vector<float> > &result, std::vector<BinningInfo> binningInfos)
+                           std::vector< std::vector<float> > &result,
+                           std::vector<BinningInfo> &binningInfos)
 {
   std::vector<std::vector<float> >::iterator it = descriptor_results.begin();
   int numFeats = it->size();
@@ -495,7 +578,7 @@ void getFeatureHistogram(std::vector<std::vector<float> > &descriptor_results,
     std::vector<BinningInfo>::iterator binningInfo = binningInfos.begin();
     std::vector<std::vector<float> >::iterator ires = result.begin();
     //missing features NOT allowed for now.
-    assert(numFeats == it_point->size());
+    assert(numFeats == (int)it_point->size());
 
     for (std::vector<float>::iterator it_feature = it_point->begin(); it_feature < it_point->end(); it_feature++, binningInfo++, ires++) {
       // iterate over features of the point
@@ -544,13 +627,22 @@ void getFeatureAverage(std::vector<std::vector<float> > &descriptor_results, std
 }
 
 // ===  FUNCTION  ======================================================================
-//         Name:  concat_feats
+//         Name:  concatFeats
 //  Description:  concat feats vector to features vector
 // =====================================================================================
-void concat_feats(std::vector<float> &features, std::vector<float> &feats)
+void concatFeats(std::vector<float> &features, std::vector<float> &feats)
 {
   for (std::vector<float>::iterator it = feats.begin(); it < feats.end(); it++)
     features.push_back(*it);
+}
+
+void concatFeats(vector<float> &features, vector<vector<float> > &feats)
+{
+  for (vector<vector<float> >::iterator it = feats.begin(); it < feats.end(); it++) {
+    for (vector<float>::iterator it2 = it->begin(); it2 < it->end(); it2++) {
+      features.push_back(*it2);
+    }
+  }
 }
 
 // ===  FUNCTION  ======================================================================
@@ -588,8 +680,8 @@ void getColorFeatures(const pcl::PointCloud<PointT> &cloud, std::vector<float> &
   int num_bin_H = 6;
   int num_bin_S = 2;
   int num_bin_V = 2;
-  // histogram and average of hue and intensity
 
+  // histogram and average of hue and intensity
   std::vector<std::vector<float> > hist_features;
   std::vector<float> avg_features;
   vector < vector <float> > color_features(cloud.points.size());
@@ -612,62 +704,281 @@ void getColorFeatures(const pcl::PointCloud<PointT> &cloud, std::vector<float> &
   spectralProfileOfSegment.avgS = avg_features[1];
   spectralProfileOfSegment.avgV = avg_features[2];
 
-  concat_feats(features, hist_features);
+  concatFeats(features, hist_features);
   addToNodeHeader("H_hist", num_bin_H);
   addToNodeHeader("S_hist", num_bin_S);
   addToNodeHeader("V_hist", num_bin_V);
 
-  concat_feats(features, avg_features);
+  concatFeats(features, avg_features);
   addToNodeHeader("HAvg");
   addToNodeHeader("SAvg");
   addToNodeHeader("VAvg");
+}
+
+// =====================================================================================
+//        Class:  getSpectralProfile
+//  Description:
+// =====================================================================================
+void getSpectralProfile(const pcl::PointCloud<PointT> &cloud, SpectralProfile &spectralProfile)
+{
+  Eigen::Matrix3f eigen_vectors;
+  Eigen::Vector3f eigen_values;
+
+  Eigen::Matrix3f covariance_matrix;
+  computeCovarianceMatrix(cloud, spectralProfile.centMatrix, covariance_matrix);
+  for (unsigned int i = 0 ; i < 3 ; i++)
+    for (unsigned int j = 0 ; j < 3 ; j++)
+      covariance_matrix(i, j) /= static_cast<double> (cloud.points.size ());
+
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> ei_symm (covariance_matrix);
+  eigen_values = ei_symm.eigenvalues ();
+  eigen_vectors = ei_symm.eigenvectors ();
+
+  spectralProfile.setEigValues(eigen_values);
+  float minEigV = FLT_MAX;
+
+  for (int i = 0; i < 3; i++) {
+    if (minEigV > eigen_values(i)) {
+      minEigV = eigen_values(i);
+      spectralProfile.normal = eigen_vectors.col(i);
+      VectorG centroid(spectralProfile.centroid.x, spectralProfile.centroid.y, spectralProfile.centroid.z);
+      VectorG camera = originalFrame->getCameraTrans().getOrigin();
+      VectorG cent2cam = camera.subtract(centroid);
+      VectorG normal(spectralProfile.normal[0], spectralProfile.normal[1], spectralProfile.normal[2]);
+      if (normal.dotProduct(cent2cam) < 0) {
+        spectralProfile.normal[0] = -spectralProfile.normal[0];
+        spectralProfile.normal[1] = -spectralProfile.normal[1];
+        spectralProfile.normal[2] = -spectralProfile.normal[2];
+      }
+    }
+  }
+  assert(minEigV == spectralProfile.getDescendingLambda(2));
+}
+
+// =====================================================================================
+//        Class:  getGlobalFeatures
+//  Description:
+// =====================================================================================
+void getGlobalFeatures(const pcl::PointCloud<PointT> &cloud,
+                       vector<float> &features,
+                       SpectralProfile & spectralProfileOfSegment)
+{
+  Eigen::Vector4f min_p;
+  Eigen::Vector4f max_p;
+
+  // get bounding box features
+  getSpectralProfile(cloud, spectralProfileOfSegment);
+
+  getMinMax(cloud, min_p, max_p);
+  float xExtent = max_p[0] - min_p[0];
+  float yExtent = max_p[1] - min_p[1];
+  float horizontalExtent = sqrt(xExtent * xExtent + yExtent * yExtent);
+  float zExtent = max_p[2] - min_p[2];
+
+  features.push_back(horizontalExtent);
+  addToNodeHeader("horizontalExtent");
+
+  features.push_back(zExtent);
+  addToNodeHeader("zExtent");
+
+  features.push_back(spectralProfileOfSegment.centroid.z);
+  addToNodeHeader("centroid_z");
+
+  features.push_back(spectralProfileOfSegment.getNormalZComponent());
+  addToNodeHeader("normal_z");
+
+  //spectral saliency features
+  features.push_back((spectralProfileOfSegment.getLinearNess()));
+  addToNodeHeader("linearness");
+  features.push_back((spectralProfileOfSegment.getPlanarNess()));
+  addToNodeHeader("planarness");
+  features.push_back((spectralProfileOfSegment.getScatter()));
+  addToNodeHeader("scatter");
+  spectralProfileOfSegment.avgHOGFeatsOfSegment.pushBackAllFeats(features);
+  addToNodeHeader("HOG", 31);
+}
+
+
+// ===  FUNCTION  ======================================================================
+//         Name:  addDistanceFeatures
+//  Description:
+// =====================================================================================
+void addDistanceFeatures(const pcl::PointCloud<PointT> &cloud, std::map< int,std::vector<float> > &features)
+{
+  std::map<int,float> segment_boundary_distance;
+  getSegmentDistanceToBoundary(cloud,segment_boundary_distance);
+  for(std::map<int,float>::iterator it = segment_boundary_distance.begin(); it != segment_boundary_distance.end(); it++ ) {
+    int segid = (*it).first;
+    features[segid].push_back((*it).second);
+  }
+}
+
+
+// ===  FUNCTION  ======================================================================
+//         Name:  getOccupancyFeature
+//  Description:
+// =====================================================================================
+float getOccupancyFeature(const PointCloudT &cloud1, const PointCloudT &cloud2, octomap::OcTreeROS & tree)
+{
+  octomap::OcTreeROS::NodeType* treeNode;
+  int occCount = 0;
+  int totalCount = 0;
+  int unknownCount = 0;
+  for (int i = 0; i < 100; i++) {
+    int p1Index = rand() % cloud1.points.size();
+    int p2Index = rand() % cloud2.points.size();
+    VectorG p1(cloud1.points[p1Index]);
+    VectorG p2(cloud2.points[p2Index]);
+    double distance = (p2.subtract(p1)).getNorm();
+    int count = 0;
+    for (double r = 0.05; r <= distance - 0.05; r += 0.05) {
+      count++;
+      VectorG point = p1.add((p2.subtract(p1).normalizeAndReturn()).multiply(r));
+      pcl::PointXYZ pt(point.v[0], point.v[1], point.v[2]);
+      treeNode = tree.search(pt);
+      if (treeNode) {
+        if (treeNode->getOccupancy() > 0.5)
+          occCount++;
+      }else {
+        unknownCount++;
+      }
+    }
+
+    if (count == 0) {
+      VectorG point = p1.add(p2.subtract(p1).multiply(0.5));
+      pcl::PointXYZ pt(point.v[0], point.v[1], point.v[2]);
+      treeNode = tree.search(pt);
+      if (treeNode) {
+        if (treeNode->getOccupancy() > 0.5)
+          occCount++;
+      }else {
+        unknownCount++;
+      }
+      count++;
+    }
+    totalCount += count;
+  }
+
+  ROS_INFO("seg1:%d, label1:%d, seg2:%d, label2:%d.", cloud1.points[1].segment, cloud1.points[1].label, cloud2.points[1].segment, cloud2.points[1].label);
+  ROS_INFO("total:%d, unknown:%d, occupied:%d.",totalCount, unknownCount, occCount);
+  return (float) unknownCount / (float) totalCount;
+}
+
+// ===  FUNCTION  ======================================================================
+//         Name:  getPairFeatures
+//  Description:
+// =====================================================================================
+void getPairFeatures(int segment_id,
+                    std::vector<int> &neighbor_list,
+                    std::map<std::pair <int, int>, float > &distance_matrix,
+                    std::map<int, int> &segment_num_index_map,
+                    std::vector<SpectralProfile, Eigen::aligned_allocator<SpectralProfile> > &spectralProfiles,
+                    std::map <int, std::vector<float> > &edge_features,
+                    octomap::OcTreeROS & tree)
+{
+  SpectralProfile segment1Spectral = spectralProfiles[segment_num_index_map[segment_id]];
+
+  for (std::vector<int>::iterator it = neighbor_list.begin(); it != neighbor_list.end(); it++) {
+    int seg2_id = *it;
+    SpectralProfile segment2Spectral = spectralProfiles[segment_num_index_map[seg2_id]];
+
+    //here goes the associative features:
+    edge_features[seg2_id].push_back(segment1Spectral.getHDiffAbs(segment2Spectral));
+    addToEdgeHeader("HDiffAbs");
+
+    edge_features[seg2_id].push_back(segment1Spectral.getSDiff(segment2Spectral));
+    addToEdgeHeader("SDiff");
+
+    edge_features[seg2_id].push_back(segment1Spectral.getVDiff(segment2Spectral));
+    addToEdgeHeader("Viff");
+
+    edge_features[seg2_id].push_back(segment1Spectral.getCoplanarity(segment2Spectral));
+    addToEdgeHeader("Coplanarity");
+
+    edge_features[seg2_id].push_back(segment1Spectral.getConvexity(segment2Spectral, distance_matrix[make_pair(segment_id, seg2_id)]));
+    addToEdgeHeader("convexity");
+
+    assert((int)edge_features[seg2_id].size() == NUM_ASSOCIATIVE_FEATS);
+
+    //here goes the non-associative features
+    edge_features[seg2_id].push_back(segment1Spectral.getHorzDistanceBwCentroids(segment2Spectral));
+    addToEdgeHeader("centroid_horz_diff");
+    // difference in z coordinates of the centroids
+    edge_features[seg2_id].push_back(segment1Spectral.getVertDispCentroids(segment2Spectral));
+    addToEdgeHeader("centroid_z_diff");
+
+    // distance between closest points
+    edge_features[seg2_id].push_back(distance_matrix[make_pair(segment_id, seg2_id)]);
+    addToEdgeHeader("dist_closest");
+
+    // difference of angles with vertical
+    edge_features[seg2_id].push_back(segment1Spectral.getAngleDiffInRadians(segment2Spectral));
+    addToEdgeHeader("AngleDiff");
+
+    // dot product of normals
+    edge_features[seg2_id].push_back(segment1Spectral.getNormalDotProduct(segment2Spectral));
+    addToEdgeHeader("NormalDotProduct");
+
+    // inner product of normals
+    edge_features[seg2_id].push_back(segment1Spectral.getInnerness(segment2Spectral));
+    addToEdgeHeader("Innerness");
+
+    // occupancy fraction feature
+    if (UseVolFeats) {
+      edge_features[seg2_id].push_back(getOccupancyFeature(*(segment1Spectral.cloudPtr), *(segment2Spectral.cloudPtr), tree));
+      addToEdgeHeader("Occupancy");
+    }
+
+    // this line should be in the end
+    addEdgeHeader = false;
+  }
 }
 
 // ===  FUNCTION  ======================================================================
 //         Name:  writeFeats
 //  Description:
 // =====================================================================================
-int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
+void writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
 {
   int counts[640 * 480];
   std::ofstream featfile;
-  string featfilename = "data_scene_labelling_full_" + lexical_cast<string > (scene_num);
+  string featfilename = TMPDIR + "data_scene_labelling_full_" + boost::lexical_cast<string > (scene_num);
   featfile.open(featfilename.data());
 
-  OcTreeROS tree(0.01);
+  octomap::OcTreeROS tree(0.01);
   if (UseVolFeats) {
-    OcTreeROS::NodeType* treeNode;
-    buildOctoMap(cloud, tree);
+  //    octomap::OcTreeROS::NodeType* treeNode;
+    buildOctoMap(*cloud_ptr, tree);
   }
 
   pcl::PointCloud<PointT>::Ptr cloud_filtered(new pcl::PointCloud<PointT > ());
   pcl::PointCloud<PointT>::Ptr cloud_seg(new pcl::PointCloud<PointT > ());
   PointCloudVector segment_clouds;
   std::map<int, int> segment_num_index_map;
-  pcl::PointIndices::Ptr segment_indices(new pcl::PointIndices());
+  std::vector<size_t> segment_indices;
 
   // find the max segment number
   int max_segment_num = 0;
-  for (size_t i = 0; i < cloud.points.size(); ++i) {
-    counts[cloud.points[i].segment]++;
-    if (max_segment_num < cloud.points[i].segment)
-      max_segment_num = (int) cloud.points[i].segment;
+  for (size_t i = 0; i < cloud_ptr->points.size(); ++i) {
+    counts[cloud_ptr->points[i].segment]++;
+    if (max_segment_num < (int)cloud_ptr->points[i].segment)
+      max_segment_num = (int) cloud_ptr->points[i].segment;
   }
 
-  ExtractIndices<PointT> extract;
+  //  pcl::ExtractIndices<PointT> extract;
   int index_ = 0;
   std::vector<SpectralProfile , Eigen::aligned_allocator<SpectralProfile> > spectralProfiles;
-  std::cerr << "max_seg num:" << max_segment_num << "," << cloud.points.size() << endl;
+  std::cerr << "max_seg num:" << max_segment_num << "," << cloud_ptr->points.size() << endl;
   for (int seg = 1; seg <= max_segment_num; seg++) {
     if(counts[seg]<=MIN_SEGMENT_SIZE)
       continue;
     SpectralProfile temp;
-    applySegmentFilter(*cloud_ptr, seg, *segment_indices, *cloud_seg);
-    if(segment_indices->size() <= MIN_SEGMENT_SIZE)
-      OriginalFrameInfo::findHog(*segment_indices, *cloud_ptr, temp.avgHOGFeatsOfSegment, originalFrame);
+    applySegmentFilter(*cloud_ptr, seg, *cloud_seg, segment_indices);
+    if((int)segment_indices.size() <= MIN_SEGMENT_SIZE)
+      OriginalFrameInfo::findHog(segment_indices, *cloud_ptr, temp.avgHOGFeatsOfSegment, originalFrame);
     else cloud_seg->points.clear();
 
-    if (!cloud_seg->points.empty() && cloud_seg->points.size() > MIN_SEGMENT_SIZE) {
+    if (!cloud_seg->points.empty() && (int)cloud_seg->points.size() > MIN_SEGMENT_SIZE) {
       segment_clouds.push_back(*cloud_seg);
       PointCloudT::Ptr tempPtr(new pcl::PointCloud<PointT > (segment_clouds[segment_clouds.size() - 1]));
       temp.cloudPtr = tempPtr;
@@ -688,7 +999,6 @@ int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
   ROS_INFO("computing neighbores %lf ms.", elapsed/((double)CLOCKS_PER_SEC));
 
   // for each segment compute node featuers
-  int num_bin_shape = 3;
   std::map <int, std::vector<float> > features;
   bool isFirstFrame = addNodeHeader;
   for (size_t i = 0; i < segment_clouds.size(); i++) {
@@ -701,7 +1011,7 @@ int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
   }
   ROS_INFO("adding wall distance features");
   start_time = clock();
-  add_distance_features(cloud, features, segment_clouds);
+  addDistanceFeatures(*cloud_ptr, features, segment_clouds);
   if(isFirstFrame) nodeFeatNames.push_back("distance_from_wall0");
   elapsed = clock() - start_time;
   ROS_INFO("time for computing wall %lf", elapsed/((double) CLOCKS_PER_SEC));
@@ -730,9 +1040,9 @@ int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
 
   std::map <int, std::vector<float> > edge_features;
   int edgecount = 0;
-  for (std::std::map<int, std::vector<int> >::iterator it = neighbor_map.begin(); it != neighbor_map.end(); it++) {
+  for (std::map<int, std::vector<int> >::iterator it = neighbor_map.begin(); it != neighbor_map.end(); it++) {
     edge_features.clear();
-    get_pair_features((*it).first, (*it).second, distance_matrix, segment_num_index_map, spectralProfiles, edge_features, tree);
+    getPairFeatures((*it).first, (*it).second, distance_matrix, segment_num_index_map, spectralProfiles, edge_features, tree);
     edgecount++;
 
     // print pair-wise features
@@ -752,18 +1062,27 @@ int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
       featfile << endl;
     }
   }
-
   featfile.close();
-  featfile.open(("temp." + featfilename).data());
+
+  featfile.open((TMPDIR + "temp." + featfilename).data());
   featfile << featfilename;
   featfile.close();
-  string command = "../svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ../svm-python-v204/" + environment + "_objectMap.txt temp." + featfilename + " ../svm-python-v204/" + environment + "Model pred." + featfilename + " > out." + featfilename;
-  system(command.data());
+//  std::string command = "../svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ../svm-python-v204/"
+//                  + ENVIRONMENT + "_objectMap.txt temp." + featfilename + " ../svm-python-v204/"
+//                  + ENVIRONMENT + "Model pred." + featfilename + " > out." + featfilename;
+  std::string instruct = WORKDIR + "svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ";
+  std::string tmpfeat = WORKDIR + "svm-python-v204/" + ENVIRONMENT + "_objectMap.txt " + TMPDIR + "temp." + featfilename;
+  std::string prefeat = WORKDIR + "svm-python-v204/" + ENVIRONMENT + "Model " + TMPDIR + "pred." + featfilename;
+  std::string outfeat = "> " + TMPDIR + "out." + featfilename;
+  std::string command = instruct + tmpfeat + prefeat + outfeat;
+  int resultVal = system(command.data());
+  ROS_INFO("Running svm classifier ... %d", resultVal);
 
   std::ifstream predLabels;
-  predLabels.open(("pred." + featfilename).data()); // open the file containing predictions
+  predLabels.open((TMPDIR + "pred." + featfilename).data()); // open the file containing predictions
   std::map<int, int> segIndex2Label;
 
+  pcl::PCDWriter writer;
   cloudVector.push_back(*cloud_ptr);
   spectralProfilesVector.push_back(spectralProfiles);
   segment_cloudsVector.push_back(segment_clouds);
@@ -771,7 +1090,7 @@ int writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
   parseAndApplyLabels(predLabels, *cloud_ptr, segment_clouds, segIndex2Label);
   segIndex2LabelVector.push_back(segIndex2Label);
   predLabels.close();
-  writer.write<PointT > (featfilename + ".pcd", *cloud_ptr, true);
+  writer.write<PointT > (PCDDIR + featfilename + ".pcd", *cloud_ptr, true);
   sensor_msgs::PointCloud2 cloudMsg;
   toROSMsg(*cloud_ptr, cloudMsg);
   pub.publish(cloudMsg);

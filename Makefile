@@ -231,6 +231,19 @@ doxygen/fast:
 .PHONY : doxygen/fast
 
 #=============================================================================
+# Target rules for targets named eyeOfGraeae
+
+# Build rule for target.
+eyeOfGraeae: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 eyeOfGraeae
+.PHONY : eyeOfGraeae
+
+# fast build rule for target.
+eyeOfGraeae/fast:
+	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/build
+.PHONY : eyeOfGraeae/fast
+
+#=============================================================================
 # Target rules for targets named labelViwer
 
 # Build rule for target.
@@ -451,6 +464,30 @@ gtest_main/fast:
 	$(MAKE) -f gtest/CMakeFiles/gtest_main.dir/build.make gtest/CMakeFiles/gtest_main.dir/build
 .PHONY : gtest_main/fast
 
+src/graeae.o: src/graeae.cpp.o
+.PHONY : src/graeae.o
+
+# target to build an object file
+src/graeae.cpp.o:
+	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.o
+.PHONY : src/graeae.cpp.o
+
+src/graeae.i: src/graeae.cpp.i
+.PHONY : src/graeae.i
+
+# target to preprocess a source file
+src/graeae.cpp.i:
+	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.i
+.PHONY : src/graeae.cpp.i
+
+src/graeae.s: src/graeae.cpp.s
+.PHONY : src/graeae.s
+
+# target to generate assembly for a file
+src/graeae.cpp.s:
+	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.s
+.PHONY : src/graeae.cpp.s
+
 src/test/label_viwer.o: src/test/label_viwer.cpp.o
 .PHONY : src/test/label_viwer.o
 
@@ -537,6 +574,7 @@ help:
 	@echo "... clean_test_results"
 	@echo "... doxygen"
 	@echo "... edit_cache"
+	@echo "... eyeOfGraeae"
 	@echo "... install"
 	@echo "... install/local"
 	@echo "... install/strip"
@@ -559,6 +597,9 @@ help:
 	@echo "... tests"
 	@echo "... gtest"
 	@echo "... gtest_main"
+	@echo "... src/graeae.o"
+	@echo "... src/graeae.i"
+	@echo "... src/graeae.s"
 	@echo "... src/test/label_viwer.o"
 	@echo "... src/test/label_viwer.i"
 	@echo "... src/test/label_viwer.s"
