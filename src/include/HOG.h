@@ -218,7 +218,7 @@ void process(const double *im, const int *dims)
 
   out[1] = max(blocks[1]-2, 0);
   numBlocksOutX=out[1];
-  cout <<"HOG block dims"<<numBlocksOutX<<","<<numBlocksOutY<<endl;
+  ROS_INFO("HOG block dims: %d , %d.", numBlocksOutX, numBlocksOutY);
   out[2] = HOGFeaturesOfBlock::numFeats ;//32 dimensional feature for each block
 //  mxArray *mxfeat = mxCreateNumericArray(3, out, mxDOUBLE_CLASS, mxREAL);
 //  mxArray *mxfeat = mxCreateNumericArray(3, out, mxDOUBLE_CLASS, mxREAL);

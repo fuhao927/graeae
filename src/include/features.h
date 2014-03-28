@@ -338,7 +338,8 @@ class OriginalFrameInfo {
     bool cameraTransSet;
 
   public:
-    PointCloudT::ConstPtr RGBDSlamFrame; // required to get 2D pixel positions
+    PointCloudT RGBDSlamFrame; // required to get 2D pixel positions
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     void saveImage(int segmentId, int label, std::vector<Point2DAbhishek>points)
     {
@@ -351,7 +352,7 @@ class OriginalFrameInfo {
       for (int x = 0; x < size.width; x++) {
         for (int y = 0; y < size.height; y++) {
           int index = x + y * size.width;
-          tmp = RGBDSlamFrame->points[index];
+          tmp = RGBDSlamFrame.points[index];
           ColorRGB tmpColor(tmp.rgb);
           CV_IMAGE_ELEM(image, float, y, 3 * x) = tmpColor.b;
           CV_IMAGE_ELEM(image, float, y, 3 * x + 1) = tmpColor.g;
@@ -375,27 +376,27 @@ class OriginalFrameInfo {
       cvReleaseImage(&image);
     }
 
-    OriginalFrameInfo(pcl::PointCloud<pcl::PointXYZRGBCamSL>::ConstPtr RGBDSlamFrame_)
+    OriginalFrameInfo(PointCloudT::Ptr RGBDSlamFrame_)
     {
       cameraTransSet = false;
-      RGBDSlamFrame = RGBDSlamFrame_;
+      RGBDSlamFrame = *RGBDSlamFrame_;
       CvSize size;
       size.height = 480;
       size.width = 640;
-      ROS_INFO("RGBslam size: %d", RGBDSlamFrame->size());
+      ROS_INFO("RGBslam size: %d", RGBDSlamFrame.size());
       // can be 0 for dummy pcds of manually transformed
-      if (RGBDSlamFrame->size() == 0)
+      if (RGBDSlamFrame.size() == 0)
         return;
 
       // can be 0 for dummy pcds of manually transformed
-      assert((int)RGBDSlamFrame->size() == size.width * size.height);
+      assert((int)RGBDSlamFrame.size() == size.width * size.height);
 
       IplImage * image = cvCreateImage(size, IPL_DEPTH_32F, 3);
       PointT tmp;
       for (int x = 0; x < size.width; x++) {
         for (int y = 0; y < size.height; y++) {
           int index = x + y * size.width;
-          tmp = RGBDSlamFrame->points[index];
+          tmp = RGBDSlamFrame.points[index];
           ColorRGB tmpColor(tmp.rgb);
           CV_IMAGE_ELEM(image, float, y, 3 * x) = tmpColor.b;
           CV_IMAGE_ELEM(image, float, y, 3 * x + 1) = tmpColor.g;
@@ -418,9 +419,9 @@ class OriginalFrameInfo {
       return ret;
     }
 
-    static void findHog(std::vector<size_t> & pointIndices, pcl::PointCloud<PointT> &incloud, HOGFeaturesOfBlock &hogSegment, OriginalFrameInfo* targetFrame)
+    static void findHog(std::vector<size_t> &pointIndices, pcl::PointCloud<PointT> &incloud, HOGFeaturesOfBlock &hogSegment, OriginalFrameInfo* &targetFrame)
     {
-      assert(targetFrame->RGBDSlamFrame->size() > 0);
+      assert(targetFrame->RGBDSlamFrame.size() > 0);
       assert(targetFrame->cameraTransSet);
 
       std::vector<Point2DAbhishek> pointsInImageLyingOnSegment;
@@ -461,7 +462,7 @@ class OriginalFrameInfo {
 
     bool isEmpty() const
     {
-      return RGBDSlamFrame->size() == 0;
+      return RGBDSlamFrame.size() == 0;
     }
 
 }; // end of class OriginalFrameInfo
@@ -472,7 +473,7 @@ class OriginalFrameInfo {
 //----------------------------------------------------------------------
 std::vector<BinStumps> nodeFeatStumps;
 std::vector<BinStumps> edgeFeatStumps;
-OriginalFrameInfo * originalFrame;
+OriginalFrameInfo *originalFrame;
 int NUM_ASSOCIATIVE_FEATS = 4 + 1;
 double currentAngle = 0;
 
@@ -940,10 +941,10 @@ void getPairFeatures(int segment_id,
 // =====================================================================================
 void writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
 {
-  int counts[640 * 480];
+  size_t counts[640 * 480];
   std::ofstream featfile;
-  string featfilename = TMPDIR + "data_scene_labelling_full_" + boost::lexical_cast<string > (scene_num);
-  featfile.open(featfilename.data());
+  std::string featfilename = "data_scene_labelling_full_" + boost::lexical_cast<string > (scene_num);
+  featfile.open((TMPDIR + featfilename).data());
 
   octomap::OcTreeROS tree(0.01);
   if (UseVolFeats) {
@@ -968,13 +969,13 @@ void writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
   //  pcl::ExtractIndices<PointT> extract;
   int index_ = 0;
   std::vector<SpectralProfile , Eigen::aligned_allocator<SpectralProfile> > spectralProfiles;
-  std::cerr << "max_seg num:" << max_segment_num << "," << cloud_ptr->points.size() << endl;
+  ROS_INFO("max_seg num: %d of %d.", max_segment_num, cloud_ptr->points.size());
   for (int seg = 1; seg <= max_segment_num; seg++) {
     if(counts[seg]<=MIN_SEGMENT_SIZE)
       continue;
     SpectralProfile temp;
     applySegmentFilter(*cloud_ptr, seg, *cloud_seg, segment_indices);
-    if((int)segment_indices.size() <= MIN_SEGMENT_SIZE)
+    if(MIN_SEGMENT_SIZE < (int)segment_indices.size())
       OriginalFrameInfo::findHog(segment_indices, *cloud_ptr, temp.avgHOGFeatsOfSegment, originalFrame);
     else cloud_seg->points.clear();
 
@@ -1059,21 +1060,21 @@ void writeFeatures(PointCloudT::Ptr & cloud_ptr, int scene_num)
         }
         featIndex++;
       }
-      featfile << endl;
+      featfile << std::endl;
     }
   }
   featfile.close();
 
   featfile.open((TMPDIR + "temp." + featfilename).data());
-  featfile << featfilename;
+  featfile << TMPDIR + featfilename;
   featfile.close();
-//  std::string command = "../svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ../svm-python-v204/"
-//                  + ENVIRONMENT + "_objectMap.txt temp." + featfilename + " ../svm-python-v204/"
+//  std::string command = "./toolkit/svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ./toolkit/svm-python-v204/"
+//                  + ENVIRONMENT + "_objectMap.txt temp." + featfilename + " ./toolkit/svm-python-v204/"
 //                  + ENVIRONMENT + "Model pred." + featfilename + " > out." + featfilename;
   std::string instruct = WORKDIR + "svm-python-v204/svm_python_classify --m svmstruct_mrf --l micro --lm nonassoc --cm sumLE1.IP --omf ";
-  std::string tmpfeat = WORKDIR + "svm-python-v204/" + ENVIRONMENT + "_objectMap.txt " + TMPDIR + "temp." + featfilename;
+  std::string tmpfeat = WORKDIR + "svm-python-v204/" + ENVIRONMENT + "_objectMap.txt " + TMPDIR + "temp." + featfilename+" ";
   std::string prefeat = WORKDIR + "svm-python-v204/" + ENVIRONMENT + "Model " + TMPDIR + "pred." + featfilename;
-  std::string outfeat = "> " + TMPDIR + "out." + featfilename;
+  std::string outfeat = " > " + TMPDIR + "out." + featfilename;
   std::string command = instruct + tmpfeat + prefeat + outfeat;
   int resultVal = system(command.data());
   ROS_INFO("Running svm classifier ... %d", resultVal);

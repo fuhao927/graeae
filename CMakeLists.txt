@@ -31,17 +31,19 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #-------------------------------------------------------------
 #  executables binary
 #-------------------------------------------------------------
-rosbuild_add_executable(labelViwer src/test/label_viwer.cpp)
-rosbuild_add_executable(eyeOfGraeae src/graeae.cpp)
+#rosbuild_add_executable(labelViwer src/test/label_viwer.cpp)
+#rosbuild_add_executable(eyeOfGraeae src/graeae.cpp)
 
 #-------------------------------------------------------------
 #  TEST : executables binary
 #-------------------------------------------------------------
 rosbuild_add_executable(segmenter src/test/segmenter_test.cpp)
-rosbuild_add_executable(pulish_pc_demo src/test/pulish_pc_demo.cpp)
+#rosbuild_add_executable(pulish_pc_demo src/test/pulish_pc_demo.cpp)
+#rosbuild_add_executable(labeller src/test/labeller.cpp)
 
 #-------------------------------------------------------------
 #  link libraries
 #-------------------------------------------------------------
-target_link_libraries(labelViwer vtkCommon vtkFiltering)
-target_link_libraries(eyeOfGraeae vtkCommon vtkFiltering)
+#target_link_libraries(labelViwer vtkCommon vtkFiltering)
+#target_link_libraries(eyeOfGraeae vtkCommon vtkFiltering)
+#target_link_libraries(labeller vtkCommon vtkFiltering vtkRendering)

@@ -62,7 +62,7 @@ void readStumpValues(vector<BinStumps> & featBins, const string & file)
 //         Name:  setupFrame
 //  Description:
 // =====================================================================================
-void setupFrame(OriginalFrameInfo* frame, TransformG t, PointCloudT::Ptr cloud_ptr)
+void setupFrame(OriginalFrameInfo* &frame, TransformG t, PointCloudT::Ptr cloud_ptr)
 {
   frame = new OriginalFrameInfo(cloud_ptr);
   frame->setCameraTrans(t);
@@ -71,7 +71,6 @@ void setupFrame(OriginalFrameInfo* frame, TransformG t, PointCloudT::Ptr cloud_p
 void pointCloudProCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_blob)
 {
   static int callback_counter_ = 0;
-  callback_counter_++;
   ROS_INFO("Received frame from kinect");
   if (++callback_counter_ % STEP == 0) {
     ROS_INFO("accepted it");
@@ -84,6 +83,10 @@ void pointCloudProCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_blob)
     globalTransform.transformPointCloudInPlaceAndSetOrigin(*cloud_seg_ptr);
     setupFrame(originalFrame, globalTransform, cloud_seg_ptr);
     filterInPlace(cloud_seg_ptr, 0.01, 0.01, 0.01);
+    for(size_t i=0;i<cloud_seg_ptr->points.size();i++) {
+      cloud_seg_ptr->points[i].segment = 0;
+      cloud_seg_ptr->points[i].label = 50;
+    }
     segmentInPlace(cloud_seg_ptr, Graeae::Segment::REGIONGROW);
     writeFeatures(cloud_seg_ptr, callback_counter_);
     sceneToAngleMap[callback_counter_] = currentAngle;
@@ -104,12 +107,12 @@ main ( int argc, char *argv[] )
   readStumpValues(nodeFeatStumps, WORKDIR + ENVIRONMENT + "/" + NODEBINFILE);
   readStumpValues(edgeFeatStumps, WORKDIR + ENVIRONMENT + "/" + EDGEBINFILE);
 
-  readLabelList(ENVIRONMENT + "_to_find.txt", labelsToFind, labelsToFindBitset);
+  readLabelList(SETTING + ENVIRONMENT + "_to_find.txt", labelsToFind, labelsToFindBitset);
   labelsFound = labelsToFindBitset;
   labelsFound.flip();
 
   readInvLabelMap(WORKDIR + "svm-python-v204/" + ENVIRONMENT + "_labelmap.txt", invLabelMap, labelMap);
-  globalTransform = readTranform("globalTransform.bag");
+  globalTransform = readTranform(SETTING + "globalTransform.bag");
 
   pub = n.advertise<sensor_msgs::PointCloud2 > ("/scene_label/labeled_cloud", 10);
   ros::Subscriber cloud_sub_ = n.subscribe("/camera/depth_registered/points", 1, pointCloudProCallback);

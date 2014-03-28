@@ -29,6 +29,17 @@ main ( int argc, char *argv[] )
   filterInPlace(cloud_ptr, 0.01, 0.01, 0.01);
   Graeae::Segment::SegmentType method = (atoi(argv[2])==1) ? Graeae::Segment::EUCLIDEAN : Graeae::Segment::REGIONGROW;
   segmentInPlace(cloud_ptr, method);
+
+  int counts[640 * 480];
+  // find the max segment number
+  int max_segment_num = 0;
+  for (size_t i = 0; i < cloud_ptr->points.size(); ++i) {
+    counts[cloud_ptr->points[i].segment]++;
+    if (max_segment_num < (int)cloud_ptr->points[i].segment)
+      max_segment_num = (int)cloud_ptr->points[i].segment;
+  }
+  ROS_INFO("max_seg num: %d of %d", max_segment_num, cloud_ptr->points.size());
+
   pcl::io::savePCDFile("segmenter_test.pcd", *cloud_ptr);
   return 0;
 }				// ----------  end of function main  ----------

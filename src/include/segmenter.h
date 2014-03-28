@@ -76,10 +76,10 @@ void filterInPlace(PointCloudT::Ptr cloud_ptr, float size_x, float size_y, float
 //         Name:  markSegmentNum
 //  Description:  mark a segment cloud as labelNum
 // =====================================================================================
-void markSegmentNum(PointCloudT &cloud, pcl::PointIndices &cluster, int segNum)
+void markSegmentNum(PointCloudT &cloud, pcl::PointIndices &cluster, int seg_num)
 {
   for(size_t i=0;i<cluster.indices.size();i++)
-    cloud.points[cluster.indices[i]].segment=segNum;
+    cloud.points[cluster.indices[i]].segment=seg_num;
 }
 
 // ===  FUNCTION  ======================================================================
@@ -143,15 +143,30 @@ bool customRegionGrowing (const PointTypeFull& point_a, const PointTypeFull& poi
 {
   Eigen::Map<const Eigen::Vector3f> point_a_normal = point_a.normal, point_b_normal = point_b.normal;
   if (squared_distance < 1e-4) {
-    if (fabs (point_a.intensity - point_b.intensity) < 8.0f)
+    if (fabs (point_a.intensity - point_b.intensity) < 5.0f)
       return (true);
     if (fabs (point_a_normal.dot (point_b_normal)) < 0.06)
       return (true);
   } else {
-    if (fabs (point_a.intensity - point_b.intensity) < 3.0f)
+    if (fabs (point_a.intensity - point_b.intensity) < 1.0f)
       return (true);
   }
   return (false);
+}
+
+void PointCloudXYZRGBtoXYZH(pcl::PointCloud<pcl::PointXYZRGB> &in, pcl::PointCloud<PointTypeIO> &out)
+{
+  out.width = in.width;
+  out.height = in.height;
+  for(size_t i = 0; i < in.points.size(); ++i) {
+    pcl::PointXYZHSV hsv;
+    PointTypeIO tmp;
+    PointXYZRGBtoXYZHSV(in.points[i], hsv);
+    tmp.x = in.points[i].x; tmp.y = in.points[i].y; tmp.z = in.points[i].z;
+    tmp.intensity = hsv.h/360;
+    out.points.push_back(tmp);
+  }
+  ROS_INFO("to hsv point size: %d", out.points.size());
 }
 
 // ===  FUNCTION  ======================================================================
@@ -192,15 +207,15 @@ void segmentInPlaceRG(PointCloudT::Ptr &cloud_ptr)
   cec.getRemovedClusters (small_clusters, large_clusters);
 
   ROS_INFO("Specified Segment Number..., small: %d, large: %d, extract: %d", small_clusters->size(), large_clusters->size(), clusters->size());
-  int segNum=1;
+  int seg_num=1;
   // Using the intensity channel for lazy visualization of the output
   for (size_t i = 0; i < clusters->size(); ++i)
-    markSegmentNum(*cloud_ptr, (*clusters)[i], segNum++);
+    markSegmentNum(*cloud_ptr, (*clusters)[i], seg_num++);
   for (size_t i = 0; i < large_clusters->size(); ++i)
-    markSegmentNum(*cloud_ptr, (*large_clusters)[i], segNum++);
-  if(segNum < 10)
-    for (int i = 0; i < 8-segNum; ++i)
-      markSegmentNum(*cloud_ptr, (*small_clusters)[i], segNum++);
+    markSegmentNum(*cloud_ptr, (*large_clusters)[i], seg_num++);
+  for (size_t i = 0; i < small_clusters->size(); ++i)
+    if(MIN_SEGMENT_SIZE < (*small_clusters)[i].indices.size())
+      markSegmentNum(*cloud_ptr, (*small_clusters)[i], seg_num++);
 }
 
 // ===  FUNCTION  ======================================================================
@@ -225,28 +240,16 @@ void segmentInPlace(PointCloudT::Ptr cloud_ptr, Graeae::Segment::SegmentType met
 //                [out] cloud_out
 //                [out] indices
 // =====================================================================================
-void applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, std::vector<size_t> &indices)
+void applySegmentFilter(PointCloudT &cloud, int seg_num, PointCloudT &cloud_out, std::vector<size_t> &indices)
 {
-  cloud_out.points.erase(cloud_out.points.begin(), cloud_out.points.end());
-  cloud_out.header.frame_id = cloud.header.frame_id;
-  cloud_out.points.resize(cloud.points.size());
-
-  int j=0;
+  cloud_out.points.clear();
   for (size_t i = 0; i < cloud.points.size(); ++i) {
-    if ((int)cloud.points[i].segment == segNum) {
-      cloud_out.points[j].x = cloud.points[i].x;
-      cloud_out.points[j].y = cloud.points[i].y;
-      cloud_out.points[j].z = cloud.points[i].z;
-      cloud_out.points[j].rgb = cloud.points[i].rgb;
-      cloud_out.points[j].segment = cloud.points[i].segment;
-      cloud_out.points[j].label = cloud.points[i].label;
-      cloud_out.points[j].cameraIndex = cloud.points[i].cameraIndex;
-      cloud_out.points[j].distance = cloud.points[i].distance;
-      j++;
+    if ((int)cloud.points[i].segment == seg_num) {
+      PointT tmp = cloud.points[i];
+      cloud_out.points.push_back(tmp);
       indices.push_back(i);
     }
   }
-  cloud_out.points.resize(j);
 }
 
 // ===  FUNCTION  ======================================================================
@@ -255,30 +258,18 @@ void applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out, 
 //                [out] cloud_out
 //                [out] indices
 // =====================================================================================
-void applySegmentFilter(PointCloudT &cloud, int segNum, PointCloudT &cloud_out)
+void applySegmentFilter(PointCloudT &cloud, int seg_num, PointCloudT &cloud_out)
 {
-  cloud_out.points.erase(cloud_out.points.begin(), cloud_out.points.end());
-  cloud_out.header.frame_id = cloud.header.frame_id;
-  cloud_out.points.resize(cloud.points.size());
+  cloud_out.points.clear();
 
   int j=0;
   for (size_t i = 0; i < cloud.points.size(); ++i) {
-    if ((int)cloud.points[i].segment == segNum) {
-      cloud_out.points[j].x = cloud.points[i].x;
-      cloud_out.points[j].y = cloud.points[i].y;
-      cloud_out.points[j].z = cloud.points[i].z;
-      cloud_out.points[j].rgb = cloud.points[i].rgb;
-      cloud_out.points[j].segment = cloud.points[i].segment;
-      cloud_out.points[j].label = cloud.points[i].label;
-      cloud_out.points[j].cameraIndex = cloud.points[i].cameraIndex;
-      cloud_out.points[j].distance = cloud.points[i].distance;
+    if ((int)cloud.points[i].segment == seg_num) {
+      PointT tmp = cloud.points[i];
+      cloud_out.points.push_back(tmp);
       j++;
     }
   }
-  if (j > 0)
-    cloud_out.points.resize(j);
-  else
-    cloud_out.points.clear();
 }
 
 // ===  FUNCTION  ======================================================================
@@ -381,14 +372,14 @@ void getSegmentDistanceToBoundary(const PointCloudT &cloud, std::map<int, float>
       segments[(int) cloud_cam->points[i].segment] = 1;
     for (std::map<int, int>::iterator it2 = segments.begin(); it2 != segments.end(); it2++) {
       cnt++;
-      int segnum = (*it2).first;
-      applySegmentFilter(*cloud_cam, segnum, *cloud_seg);
-      applyNotsegmentFilter(*cloud_cam, segnum, *cloud_rest);
+      int seg_num = (*it2).first;
+      applySegmentFilter(*cloud_cam, seg_num, *cloud_seg);
+      applyNotsegmentFilter(*cloud_cam, seg_num, *cloud_rest);
       float bdist = getDistanceToBoundary(*cloud_seg, *cloud_rest);
 
-      std::map<int, float>::iterator segit = segment_boundary_distance.find(segnum);
-      if (segit == segment_boundary_distance.end() || bdist > segment_boundary_distance[segnum])
-        segment_boundary_distance[segnum] = bdist;
+      std::map<int, float>::iterator segit = segment_boundary_distance.find(seg_num);
+      if (segit == segment_boundary_distance.end() || bdist > segment_boundary_distance[seg_num])
+        segment_boundary_distance[seg_num] = bdist;
     }
   }
 }

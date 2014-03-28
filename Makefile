@@ -231,45 +231,6 @@ doxygen/fast:
 .PHONY : doxygen/fast
 
 #=============================================================================
-# Target rules for targets named eyeOfGraeae
-
-# Build rule for target.
-eyeOfGraeae: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 eyeOfGraeae
-.PHONY : eyeOfGraeae
-
-# fast build rule for target.
-eyeOfGraeae/fast:
-	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/build
-.PHONY : eyeOfGraeae/fast
-
-#=============================================================================
-# Target rules for targets named labelViwer
-
-# Build rule for target.
-labelViwer: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 labelViwer
-.PHONY : labelViwer
-
-# fast build rule for target.
-labelViwer/fast:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/build
-.PHONY : labelViwer/fast
-
-#=============================================================================
-# Target rules for targets named pulish_pc_demo
-
-# Build rule for target.
-pulish_pc_demo: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 pulish_pc_demo
-.PHONY : pulish_pc_demo
-
-# fast build rule for target.
-pulish_pc_demo/fast:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/build
-.PHONY : pulish_pc_demo/fast
-
-#=============================================================================
 # Target rules for targets named rosbuild_clean-test-results
 
 # Build rule for target.
@@ -464,78 +425,6 @@ gtest_main/fast:
 	$(MAKE) -f gtest/CMakeFiles/gtest_main.dir/build.make gtest/CMakeFiles/gtest_main.dir/build
 .PHONY : gtest_main/fast
 
-src/graeae.o: src/graeae.cpp.o
-.PHONY : src/graeae.o
-
-# target to build an object file
-src/graeae.cpp.o:
-	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.o
-.PHONY : src/graeae.cpp.o
-
-src/graeae.i: src/graeae.cpp.i
-.PHONY : src/graeae.i
-
-# target to preprocess a source file
-src/graeae.cpp.i:
-	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.i
-.PHONY : src/graeae.cpp.i
-
-src/graeae.s: src/graeae.cpp.s
-.PHONY : src/graeae.s
-
-# target to generate assembly for a file
-src/graeae.cpp.s:
-	$(MAKE) -f CMakeFiles/eyeOfGraeae.dir/build.make CMakeFiles/eyeOfGraeae.dir/src/graeae.cpp.s
-.PHONY : src/graeae.cpp.s
-
-src/test/label_viwer.o: src/test/label_viwer.cpp.o
-.PHONY : src/test/label_viwer.o
-
-# target to build an object file
-src/test/label_viwer.cpp.o:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.o
-.PHONY : src/test/label_viwer.cpp.o
-
-src/test/label_viwer.i: src/test/label_viwer.cpp.i
-.PHONY : src/test/label_viwer.i
-
-# target to preprocess a source file
-src/test/label_viwer.cpp.i:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.i
-.PHONY : src/test/label_viwer.cpp.i
-
-src/test/label_viwer.s: src/test/label_viwer.cpp.s
-.PHONY : src/test/label_viwer.s
-
-# target to generate assembly for a file
-src/test/label_viwer.cpp.s:
-	$(MAKE) -f CMakeFiles/labelViwer.dir/build.make CMakeFiles/labelViwer.dir/src/test/label_viwer.cpp.s
-.PHONY : src/test/label_viwer.cpp.s
-
-src/test/pulish_pc_demo.o: src/test/pulish_pc_demo.cpp.o
-.PHONY : src/test/pulish_pc_demo.o
-
-# target to build an object file
-src/test/pulish_pc_demo.cpp.o:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.o
-.PHONY : src/test/pulish_pc_demo.cpp.o
-
-src/test/pulish_pc_demo.i: src/test/pulish_pc_demo.cpp.i
-.PHONY : src/test/pulish_pc_demo.i
-
-# target to preprocess a source file
-src/test/pulish_pc_demo.cpp.i:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.i
-.PHONY : src/test/pulish_pc_demo.cpp.i
-
-src/test/pulish_pc_demo.s: src/test/pulish_pc_demo.cpp.s
-.PHONY : src/test/pulish_pc_demo.s
-
-# target to generate assembly for a file
-src/test/pulish_pc_demo.cpp.s:
-	$(MAKE) -f CMakeFiles/pulish_pc_demo.dir/build.make CMakeFiles/pulish_pc_demo.dir/src/test/pulish_pc_demo.cpp.s
-.PHONY : src/test/pulish_pc_demo.cpp.s
-
 src/test/segmenter_test.o: src/test/segmenter_test.cpp.o
 .PHONY : src/test/segmenter_test.o
 
@@ -574,13 +463,10 @@ help:
 	@echo "... clean_test_results"
 	@echo "... doxygen"
 	@echo "... edit_cache"
-	@echo "... eyeOfGraeae"
 	@echo "... install"
 	@echo "... install/local"
 	@echo "... install/strip"
-	@echo "... labelViwer"
 	@echo "... list_install_components"
-	@echo "... pulish_pc_demo"
 	@echo "... rebuild_cache"
 	@echo "... rosbuild_clean-test-results"
 	@echo "... rosbuild_precompile"
@@ -597,15 +483,6 @@ help:
 	@echo "... tests"
 	@echo "... gtest"
 	@echo "... gtest_main"
-	@echo "... src/graeae.o"
-	@echo "... src/graeae.i"
-	@echo "... src/graeae.s"
-	@echo "... src/test/label_viwer.o"
-	@echo "... src/test/label_viwer.i"
-	@echo "... src/test/label_viwer.s"
-	@echo "... src/test/pulish_pc_demo.o"
-	@echo "... src/test/pulish_pc_demo.i"
-	@echo "... src/test/pulish_pc_demo.s"
 	@echo "... src/test/segmenter_test.o"
 	@echo "... src/test/segmenter_test.i"
 	@echo "... src/test/segmenter_test.s"
