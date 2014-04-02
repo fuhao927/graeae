@@ -39,10 +39,10 @@ RM = /usr/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/bin/cmake-gui
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/destinelin/ROS/graeae
+CMAKE_SOURCE_DIR = /home/destinelin/ROS/graeae_tools/graeae
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/destinelin/ROS/graeae
+CMAKE_BINARY_DIR = /home/destinelin/ROS/graeae_tools/graeae
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -110,9 +110,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/destinelin/ROS/graeae/CMakeFiles /home/destinelin/ROS/graeae/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/destinelin/ROS/graeae_tools/graeae/CMakeFiles /home/destinelin/ROS/graeae_tools/graeae/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/destinelin/ROS/graeae/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/destinelin/ROS/graeae_tools/graeae/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -216,6 +216,19 @@ clean_test_results: cmake_check_build_system
 clean_test_results/fast:
 	$(MAKE) -f CMakeFiles/clean_test_results.dir/build.make CMakeFiles/clean_test_results.dir/build
 .PHONY : clean_test_results/fast
+
+#=============================================================================
+# Target rules for targets named colorMapping
+
+# Build rule for target.
+colorMapping: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 colorMapping
+.PHONY : colorMapping
+
+# fast build rule for target.
+colorMapping/fast:
+	$(MAKE) -f CMakeFiles/colorMapping.dir/build.make CMakeFiles/colorMapping.dir/build
+.PHONY : colorMapping/fast
 
 #=============================================================================
 # Target rules for targets named doxygen
@@ -425,6 +438,30 @@ gtest_main/fast:
 	$(MAKE) -f gtest/CMakeFiles/gtest_main.dir/build.make gtest/CMakeFiles/gtest_main.dir/build
 .PHONY : gtest_main/fast
 
+src/colorMapping.o: src/colorMapping.cpp.o
+.PHONY : src/colorMapping.o
+
+# target to build an object file
+src/colorMapping.cpp.o:
+	$(MAKE) -f CMakeFiles/colorMapping.dir/build.make CMakeFiles/colorMapping.dir/src/colorMapping.cpp.o
+.PHONY : src/colorMapping.cpp.o
+
+src/colorMapping.i: src/colorMapping.cpp.i
+.PHONY : src/colorMapping.i
+
+# target to preprocess a source file
+src/colorMapping.cpp.i:
+	$(MAKE) -f CMakeFiles/colorMapping.dir/build.make CMakeFiles/colorMapping.dir/src/colorMapping.cpp.i
+.PHONY : src/colorMapping.cpp.i
+
+src/colorMapping.s: src/colorMapping.cpp.s
+.PHONY : src/colorMapping.s
+
+# target to generate assembly for a file
+src/colorMapping.cpp.s:
+	$(MAKE) -f CMakeFiles/colorMapping.dir/build.make CMakeFiles/colorMapping.dir/src/colorMapping.cpp.s
+.PHONY : src/colorMapping.cpp.s
+
 src/test/segmenter_test.o: src/test/segmenter_test.cpp.o
 .PHONY : src/test/segmenter_test.o
 
@@ -461,6 +498,7 @@ help:
 	@echo "... ROSBUILD_gensrv_lisp"
 	@echo "... _catkin_empty_exported_target"
 	@echo "... clean_test_results"
+	@echo "... colorMapping"
 	@echo "... doxygen"
 	@echo "... edit_cache"
 	@echo "... install"
@@ -483,6 +521,9 @@ help:
 	@echo "... tests"
 	@echo "... gtest"
 	@echo "... gtest_main"
+	@echo "... src/colorMapping.o"
+	@echo "... src/colorMapping.i"
+	@echo "... src/colorMapping.s"
 	@echo "... src/test/segmenter_test.o"
 	@echo "... src/test/segmenter_test.i"
 	@echo "... src/test/segmenter_test.s"

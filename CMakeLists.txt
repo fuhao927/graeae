@@ -38,6 +38,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #  TEST : executables binary
 #-------------------------------------------------------------
 rosbuild_add_executable(segmenter src/test/segmenter_test.cpp)
+rosbuild_add_executable(colorMapping src/colorMapping.cpp)
 #rosbuild_add_executable(pulish_pc_demo src/test/pulish_pc_demo.cpp)
 #rosbuild_add_executable(labeller src/test/labeller.cpp)
 

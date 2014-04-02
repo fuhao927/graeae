@@ -26,7 +26,7 @@ main ( int argc, char *argv[] )
   pcl::io::loadPCDFile<PointT>(argv[1], *cloud_ptr);
   for(size_t i=0;i<cloud_ptr->points.size();i++)
     cloud_ptr->points[i].segment=0;
-  filterInPlace(cloud_ptr, 0.01, 0.01, 0.01);
+//  filterInPlace(cloud_ptr, 0.01, 0.01, 0.01);
   Graeae::Segment::SegmentType method = (atoi(argv[2])==1) ? Graeae::Segment::EUCLIDEAN : Graeae::Segment::REGIONGROW;
   segmentInPlace(cloud_ptr, method);
 
